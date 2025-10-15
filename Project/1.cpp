@@ -14,26 +14,22 @@ const char SnakeHeadSymbol = '0';
 const char SnakeBodySymbol = 'O';
 
 
-// Функция для создания игрового поля в виде вектора векторов
 vector<vector<char>> CreateField()
 {
-    // Создаем поле с учетом границ (высота + 2, ширина + 2)
     vector<vector<char>> field(FieldHeight + 2, vector<char>(FieldWidth + 2, ' '));
 
-    // Заполняем верхнюю и нижнюю границы
     for (int x = 0; x < FieldWidth + 2; x++)
     {
         field[0][x] = HorizontalBorder;                    // Верхняя граница
         field[FieldHeight + 1][x] = HorizontalBorder;      // Нижняя граница
     }
 
-    // Заполняем боковые границы и внутреннее пространство
     for (int y = 1; y <= FieldHeight; y++)
     {
         field[y][0] = VerticalBorder;                      // Левая граница
         field[y][FieldWidth + 1] = VerticalBorder;         // Правая граница
 
-        // Заполняем внутреннее пространство точками
+        // Внутреннее пространство (точки)
         for (int x = 1; x <= FieldWidth; x++)
         {
             field[y][x] = FillingField;
@@ -43,7 +39,6 @@ vector<vector<char>> CreateField()
     return field;
 }
 
-// Функция для отрисовки поля из вектора
 void DrawField(const vector<vector<char>>& field)
 {
     system("cls");
@@ -124,6 +119,20 @@ void PlaceSnake(vector<vector<char>>& field, const vector<Position>& snake)
     {
         field[snake[i].y][snake[i].x] = SnakeBodySymbol;
     }
+}
+
+enum class Direction
+{
+    Up,
+    Down,
+    Left,
+    Right
+};
+
+void MoveSnake(vector<Position>& snake, Direction direction)
+{
+    if (snake.empty()) return;
+
 }
 
 int main()
