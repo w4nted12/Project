@@ -7,8 +7,8 @@
 
 using namespace std;
 
-const int FIELD_WIDTH = 10;
-const int FIELD_HEIGHT = 8;
+const int FIELD_WIDTH = 11;
+const int FIELD_HEIGHT = 6;
 const char HORIZONTAL_BORDER = '-';
 const char VERTICAL_BORDER = '|';
 const char FILLING_FIELD = '.';
