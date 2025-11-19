@@ -29,7 +29,8 @@ struct Position
 
 vector<vector<char>> CreateField()
 {
-    if (FIELD_WIDTH < 5 || FIELD_HEIGHT < 5) {
+    if (FIELD_WIDTH < 5 || FIELD_HEIGHT < 5) 
+    {
         cerr << "Error: field size too small!" << endl;
         exit(1);
     }
@@ -363,11 +364,13 @@ void GameLoop()
         // Обработка ввода
         currentDirection = GetInput(currentDirection, restart, exitGame);
 
-        if (exitGame) {
+        if (exitGame) 
+        {
             break;
         }
 
-        if (restart) {
+        if (restart) 
+        {
             GameLoop(); // Перезапуск игры
             return;
         }
@@ -410,20 +413,24 @@ void GameLoop()
         else
         {
             // Если игра окончена или победа, поле больше не обновляется
-            if (_kbhit()) {
+            if (_kbhit()) 
+            {
                 char key = _getch();
-                if (key == 'r' || key == 'R') {
+                if (key == 'r' || key == 'R') 
+                {
                     GameLoop();
                     return;
                 }
-                else if (key == 27) { // ESC
+                else if (key == 27)  // ESC 
+                { 
                     break;
                 }
             }
         }
 
         // Задержка только если игра не окончена
-        if (gameState == GameState::PLAYING) {
+        if (gameState == GameState::PLAYING) 
+        {
             Sleep(200);
         }
     }
