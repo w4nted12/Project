@@ -7,7 +7,7 @@
 
 using namespace std;
 
-const int FIELD_WIDTH = 11;
+const int FIELD_WIDTH = 9;
 const int FIELD_HEIGHT = 6;
 const char HORIZONTAL_BORDER = '-';
 const char VERTICAL_BORDER = '|';
@@ -59,38 +59,39 @@ vector<vector<char>> CreateField()
 
 void DrawField(const vector<vector<char>>& field, int snakeLength, GameState gameState = GameState::PLAYING)
 {
-    system("cls");
-
-    // Рисуем игровое поле
+    cout << "\033[H";
+ 
     for (const auto& row : field)
     {
         for (char cell : row)
         {
             cout << cell;
         }
-        cout << endl;
+        cout << "\n";
     }
 
     // Надписи снизу
     switch (gameState)
     {
     case GameState::PLAYING:
-        cout << "Length: " << snakeLength << endl;
-        cout << "WASD - move | R - restart | ESC - exit" << endl;
+        cout << "Length: " << snakeLength << "\n";
+        cout << "WASD - move | R - restart | ESC - exit" << "\n";
         break;
 
     case GameState::GAME_OVER:
-        cout << "GAME OVER!" << endl;
-        cout << "Final length: " << snakeLength << endl;
-        cout << "R - restart | ESC - exit" << endl;
+        cout << "GAME OVER!" << "\n";
+        cout << "Final length: " << snakeLength << "\n";
+        cout << "R - restart | ESC - exit" << "\n";
         break;
 
     case GameState::VICTORY:
-        cout << "VICTORY!" << endl;
-        cout << "Perfect score: " << snakeLength << endl;
-        cout << "R - restart | ESC - exit" << endl;
+        cout << "VICTORY!" << "\n";
+        cout << "Perfect score: " << snakeLength << "\n";
+        cout << "R - restart | ESC - exit" << "\n";
         break;
     }
+
+    
 }
 
 // Функция для проверки победы
@@ -104,6 +105,7 @@ bool CheckVictory(const vector<Position>& snake)
 // Функция для отображения Game Over внутри поля
 void ShowGameOverOnField(vector<vector<char>>& field, int snakeLength, bool victory = false)
 {
+    system("cls");
     for (int y = 1; y <= FIELD_HEIGHT; y++)
     {
         for (int x = 1; x <= FIELD_WIDTH; x++)
@@ -355,7 +357,8 @@ void GameLoop()
     DrawField(gameField, static_cast<int>(snake.size()));
     cout << "Press any key to start..." << endl;
     _getch();
-
+    system("cls");
+    DrawField(gameField, static_cast<int>(snake.size()));
     while (true)
     {
         bool restart = false;
@@ -421,17 +424,17 @@ void GameLoop()
                     GameLoop();
                     return;
                 }
-                else if (key == 27)  // ESC 
+                else if (key == 27)  //ESC 
                 { 
                     break;
                 }
             }
         }
 
-        // Задержка только если игра не окончена
+        
         if (gameState == GameState::PLAYING) 
         {
-            Sleep(200);
+            Sleep(300);
         }
     }
 }
