@@ -15,6 +15,8 @@ const char FILLING_FIELD = '.';
 const char APPLE_SYMBOL = '@';
 const char SNAKE_HEAD_SYMBOL = '0';
 const char SNAKE_BODY_SYMBOL = 'o';
+const char* CONTROLS = "WASD - move | R - restart | ESC - exit";
+const char* 
 
 enum class Direction { UP, DOWN, LEFT, RIGHT };
 enum class GameState { PLAYING, GAME_OVER, VICTORY };
@@ -75,7 +77,7 @@ void DrawField(const vector<vector<char>>& field, int snakeLength, GameState gam
     {
     case GameState::PLAYING:
         cout << "Length: " << snakeLength << "\n";
-        cout << "WASD - move | R - restart | ESC - exit" << "\n";
+        cout << CONTROLS << "\n";
         break;
 
     case GameState::GAME_OVER:
