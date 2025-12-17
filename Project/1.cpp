@@ -58,6 +58,19 @@ void MoveCursorToHome()
     std::cout << "\033[H";
 }
 
+bool IsPositionValid(const Position& pos)
+{
+    return pos.x >= 1 && pos.x <= FIELD_WIDTH &&
+        pos.y >= 1 && pos.y <= FIELD_HEIGHT;
+}
+
+void InitializeFieldRow(std::vector<char>& row)
+{
+    row[0] = VERTICAL_BORDER;
+    row[FIELD_WIDTH + 1] = VERTICAL_BORDER;
+    std::fill_n(row.begin() + 1, FIELD_WIDTH, FILLING_FIELD);
+}
+
 std::vector<std::vector<char>> CreateField()
 {
     if (FIELD_WIDTH < MINIMUM_WIDTH_FIELD_SIZE || FIELD_HEIGHT < MINIMUM_HEIGHT_FIELD_SIZE)
@@ -66,23 +79,15 @@ std::vector<std::vector<char>> CreateField()
         exit(1);
     }
 
-    std::vector<std::vector<char>> field(FIELD_HEIGHT + 2, std::vector<char>(FIELD_WIDTH + 2, ' '));
+    std::vector<std::vector<char>> field(FIELD_HEIGHT + 2,
+        std::vector<char>(FIELD_WIDTH + 2, ' '));
 
-    for (int x = 0; x < FIELD_WIDTH + 2; x++)
-    {
-        field[0][x] = HORIZONTAL_BORDER;
-        field[FIELD_HEIGHT + 1][x] = HORIZONTAL_BORDER;
-    }
+    std::fill(field[0].begin(), field[0].end(), HORIZONTAL_BORDER);
+    std::fill(field[FIELD_HEIGHT + 1].begin(), field[FIELD_HEIGHT + 1].end(), HORIZONTAL_BORDER);
 
     for (int y = 1; y <= FIELD_HEIGHT; y++)
     {
-        field[y][0] = VERTICAL_BORDER;
-        field[y][FIELD_WIDTH + 1] = VERTICAL_BORDER;
-
-        for (int x = 1; x <= FIELD_WIDTH; x++)
-        {
-            field[y][x] = FILLING_FIELD;
-        }
+        InitializeFieldRow(field[y]);
     }
 
     return field;
@@ -111,7 +116,8 @@ void DrawGameInfo(int snakeLength, GameState gameState)
     }
 }
 
-void DrawField(const std::vector<std::vector<char>>& field, int snakeLength, GameState gameState = GameState::PLAYING)
+void DrawField(const std::vector<std::vector<char>>& field, int snakeLength,
+    GameState gameState = GameState::PLAYING)
 {
     MoveCursorToHome();
 
@@ -127,7 +133,8 @@ void DrawField(const std::vector<std::vector<char>>& field, int snakeLength, Gam
     DrawGameInfo(snakeLength, gameState);
 }
 
-void DrawCenteredTextOnField(std::vector<std::vector<char>>& field, int row, const std::string& text)
+void DrawCenteredTextOnField(std::vector<std::vector<char>>& field, int row,
+    const std::string& text)
 {
     int startX = (FIELD_WIDTH - static_cast<int>(text.length())) / 2 + 1;
 
@@ -141,14 +148,12 @@ void ClearFieldContent(std::vector<std::vector<char>>& field)
 {
     for (int y = 1; y <= FIELD_HEIGHT; y++)
     {
-        for (int x = 1; x <= FIELD_WIDTH; x++)
-        {
-            field[y][x] = FILLING_FIELD;
-        }
+        std::fill(field[y].begin() + 1, field[y].begin() + FIELD_WIDTH + 1, FILLING_FIELD);
     }
 }
 
-void ShowGameOverOnField(std::vector<std::vector<char>>& field, int snakeLength, bool victory = false)
+void ShowGameOverOnField(std::vector<std::vector<char>>& field, int snakeLength,
+    bool victory = false)
 {
     ClearConsole();
     ClearFieldContent(field);
@@ -179,37 +184,32 @@ int RandomValue(int min, int max)
     return dist(gen);
 }
 
+bool IsAppleOnSnake(const Position& apple, const std::vector<Position>& snakeBody)
+{
+    return std::find_if(snakeBody.begin(), snakeBody.end(),
+        [&](const Position& segment) {
+            return segment.x == apple.x && segment.y == apple.y;
+        }) != snakeBody.end();
+}
+
 Position CreateApple(const std::vector<Position>& snakeBody)
 {
     Position apple;
-    bool validPosition = false;
     int attempts = 0;
     const int MAX_ATTEMPTS = 100;
 
-    while (!validPosition && attempts < MAX_ATTEMPTS)
-    {
+    do {
         attempts++;
         apple.x = RandomValue(1, FIELD_WIDTH);
         apple.y = RandomValue(1, FIELD_HEIGHT);
-
-        validPosition = true;
-        for (const auto& segment : snakeBody)
-        {
-            if (segment.x == apple.x && segment.y == apple.y)
-            {
-                validPosition = false;
-                break;
-            }
-        }
-    }
+    } while (IsAppleOnSnake(apple, snakeBody) && attempts < MAX_ATTEMPTS);
 
     return apple;
 }
 
 void PlaceApple(std::vector<std::vector<char>>& field, const Position& apple)
 {
-    if (apple.y >= 0 && apple.y < static_cast<int>(field.size()) &&
-        apple.x >= 0 && apple.x < static_cast<int>(field[apple.y].size()))
+    if (IsPositionValid(apple))
     {
         field[apple.y][apple.x] = APPLE_SYMBOL;
     }
@@ -233,45 +233,56 @@ std::vector<Position> CreateSnake()
     if (headY < 2) headY = 2;
     if (headY > FIELD_HEIGHT - 1) headY = FIELD_HEIGHT - 1;
 
-    snake.push_back({ headX, headY });  
+    snake.push_back({ headX, headY });
 
     if (headX - 1 >= 1)
     {
-        snake.push_back({ headX - 1, headY });  
+        snake.push_back({ headX - 1, headY });
     }
     else if (headY - 1 >= 1)
     {
-        snake.push_back({ headX, headY - 1 });  
+        snake.push_back({ headX, headY - 1 });
     }
 
     return snake;
+}
+
+void PlaceSnakeSegment(std::vector<std::vector<char>>& field,
+    const Position& segment, char symbol)
+{
+    if (IsPositionValid(segment))
+    {
+        field[segment.y][segment.x] = symbol;
+    }
 }
 
 void PlaceSnake(std::vector<std::vector<char>>& field, const std::vector<Position>& snake)
 {
     if (snake.empty()) return;
 
-    if (snake[0].x >= 1 && snake[0].x <= FIELD_WIDTH &&
-        snake[0].y >= 1 && snake[0].y <= FIELD_HEIGHT)
-    {
-        field[snake[0].y][snake[0].x] = SNAKE_HEAD_SYMBOL;
-    }
+    PlaceSnakeSegment(field, snake[0], SNAKE_HEAD_SYMBOL);
 
     for (std::size_t i = 1; i < snake.size(); i++)
     {
-        if (snake[i].x >= 1 && snake[i].x <= FIELD_WIDTH &&
-            snake[i].y >= 1 && snake[i].y <= FIELD_HEIGHT)
-        {
-            field[snake[i].y][snake[i].x] = SNAKE_BODY_SYMBOL;
-        }
+        PlaceSnakeSegment(field, snake[i], SNAKE_BODY_SYMBOL);
     }
 }
 
-bool MoveSnake(std::vector<Position>& snake, Direction direction, Position* apple = nullptr, bool* appleEaten = nullptr)
+bool CheckSelfCollision(const std::vector<Position>& snake, const Position& newHead)
+{
+    return std::any_of(snake.begin(), snake.end() - 1,
+        [&](const Position& segment) {
+            return segment.x == newHead.x && segment.y == newHead.y;
+        });
+}
+
+bool MoveSnake(std::vector<Position>& snake, Direction direction,
+    Position* apple = nullptr, bool* appleEaten = nullptr)
 {
     if (snake.empty()) return false;
 
-    Position newHead = snake.front(); 
+    Position newHead = snake.front();
+
     switch (direction)
     {
     case Direction::UP:    newHead.y -= 1; break;
@@ -280,18 +291,14 @@ bool MoveSnake(std::vector<Position>& snake, Direction direction, Position* appl
     case Direction::RIGHT: newHead.x += 1; break;
     }
 
-    if (newHead.x < 1 || newHead.x > FIELD_WIDTH ||
-        newHead.y < 1 || newHead.y > FIELD_HEIGHT)
+    if (!IsPositionValid(newHead))
     {
         return false;
     }
 
-    for (std::size_t i = 0; i < snake.size() - 1; i++) 
+    if (CheckSelfCollision(snake, newHead))
     {
-        if (snake[i].x == newHead.x && snake[i].y == newHead.y)
-        {
-            return false;
-        }
+        return false;
     }
 
     bool wasAppleEaten = false;
@@ -299,6 +306,7 @@ bool MoveSnake(std::vector<Position>& snake, Direction direction, Position* appl
     {
         wasAppleEaten = (newHead.x == apple->x && newHead.y == apple->y);
     }
+
     snake.insert(snake.begin(), newHead);
 
     if (!wasAppleEaten)
@@ -351,7 +359,7 @@ Direction ProcessInput(Direction currentDirection, bool& restart, bool& exitGame
         }
     }
 
-    return currentDirection; 
+    return currentDirection;
 }
 
 void ShowStartMessage()
@@ -391,11 +399,11 @@ bool HandleGameOverInput()
         char key = _getch();
         if (key == 'r' || key == 'R')
         {
-            return true; // Рестарт
+            return true;
         }
         else if (key == 27) // ESC
         {
-            exit(0); // Выход
+            exit(0);
         }
     }
     return false;
