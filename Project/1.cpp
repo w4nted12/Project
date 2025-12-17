@@ -4,19 +4,30 @@
 #include <conio.h>
 #include <windows.h>
 #include <string>
+#include <algorithm>
 
-using namespace std;
-
-const int FIELD_WIDTH = 9;
+const int FIELD_WIDTH = 10;
 const int FIELD_HEIGHT = 6;
+const int MINIMUM_WIDTH_FIELD_SIZE = 10;
+const int MINIMUM_HEIGHT_FIELD_SIZE = 4;
 const char HORIZONTAL_BORDER = '-';
 const char VERTICAL_BORDER = '|';
 const char FILLING_FIELD = '.';
 const char APPLE_SYMBOL = '@';
 const char SNAKE_HEAD_SYMBOL = '0';
 const char SNAKE_BODY_SYMBOL = 'o';
-const char* CONTROLS = "WASD - move | R - restart | ESC - exit";
-const char* 
+
+const char* ERROR_TOO_SMALL_FIELD = "Error: field size too small!";
+const char* CONTROLS_STRING = "WASD - move | R - restart | ESC - exit";
+const char* START_MESSAGE = "Press any key to start...";
+const char* RESTART_EXIT_STRING = "R - restart | ESC - exit";
+
+const char* GAME_OVER_TITLE = "GAME OVER!";
+const char* VICTORY_TITLE = "VICTORY!";
+const char* PERFECT_SCORE_STRING = "PERFECT SCORE!";
+const char* FINAL_LENGTH_STRING = "Final length: ";
+const char* PERFECT_SCORE_LABEL = "Perfect score: ";
+const char* LENGTH_LABEL = "Length: ";
 
 enum class Direction { UP, DOWN, LEFT, RIGHT };
 enum class GameState { PLAYING, GAME_OVER, VICTORY };
@@ -27,17 +38,35 @@ struct Position
     int y;
 };
 
-//  ФУНКЦИИ ПОЛЯ 
-
-vector<vector<char>> CreateField()
+struct GameData
 {
-    if (FIELD_WIDTH < 5 || FIELD_HEIGHT < 5) 
+    std::vector<std::vector<char>> field;
+    std::vector<Position> snake;
+    Position apple;
+    Direction currentDirection;
+    bool appleEaten;
+    GameState state;
+};
+
+void ClearConsole()
+{
+    system("cls");
+}
+
+void MoveCursorToHome()
+{
+    std::cout << "\033[H";
+}
+
+std::vector<std::vector<char>> CreateField()
+{
+    if (FIELD_WIDTH < MINIMUM_WIDTH_FIELD_SIZE || FIELD_HEIGHT < MINIMUM_HEIGHT_FIELD_SIZE)
     {
-        cerr << "Error: field size too small!" << endl;
+        std::cerr << ERROR_TOO_SMALL_FIELD << std::endl;
         exit(1);
     }
 
-    vector<vector<char>> field(FIELD_HEIGHT + 2, vector<char>(FIELD_WIDTH + 2, ' '));
+    std::vector<std::vector<char>> field(FIELD_HEIGHT + 2, std::vector<char>(FIELD_WIDTH + 2, ' '));
 
     for (int x = 0; x < FIELD_WIDTH + 2; x++)
     {
@@ -59,55 +88,57 @@ vector<vector<char>> CreateField()
     return field;
 }
 
-void DrawField(const vector<vector<char>>& field, int snakeLength, GameState gameState = GameState::PLAYING)
+void DrawGameInfo(int snakeLength, GameState gameState)
 {
-    cout << "\033[H";
- 
+    switch (gameState)
+    {
+    case GameState::PLAYING:
+        std::cout << LENGTH_LABEL << snakeLength << "\n";
+        std::cout << CONTROLS_STRING << "\n";
+        break;
+
+    case GameState::GAME_OVER:
+        std::cout << GAME_OVER_TITLE << "\n";
+        std::cout << FINAL_LENGTH_STRING << snakeLength << "\n";
+        std::cout << RESTART_EXIT_STRING << "\n";
+        break;
+
+    case GameState::VICTORY:
+        std::cout << VICTORY_TITLE << "\n";
+        std::cout << PERFECT_SCORE_LABEL << snakeLength << "\n";
+        std::cout << RESTART_EXIT_STRING << "\n";
+        break;
+    }
+}
+
+void DrawField(const std::vector<std::vector<char>>& field, int snakeLength, GameState gameState = GameState::PLAYING)
+{
+    MoveCursorToHome();
+
     for (const auto& row : field)
     {
         for (char cell : row)
         {
-            cout << cell;
+            std::cout << cell;
         }
-        cout << "\n";
+        std::cout << "\n";
     }
 
-    // Надписи снизу
-    switch (gameState)
+    DrawGameInfo(snakeLength, gameState);
+}
+
+void DrawCenteredTextOnField(std::vector<std::vector<char>>& field, int row, const std::string& text)
+{
+    int startX = (FIELD_WIDTH - static_cast<int>(text.length())) / 2 + 1;
+
+    for (std::size_t i = 0; i < text.length() && startX + static_cast<int>(i) <= FIELD_WIDTH; i++)
     {
-    case GameState::PLAYING:
-        cout << "Length: " << snakeLength << "\n";
-        cout << CONTROLS << "\n";
-        break;
-
-    case GameState::GAME_OVER:
-        cout << "GAME OVER!" << "\n";
-        cout << "Final length: " << snakeLength << "\n";
-        cout << "R - restart | ESC - exit" << "\n";
-        break;
-
-    case GameState::VICTORY:
-        cout << "VICTORY!" << "\n";
-        cout << "Perfect score: " << snakeLength << "\n";
-        cout << "R - restart | ESC - exit" << "\n";
-        break;
+        field[row][startX + i] = text[i];
     }
-
-    
 }
 
-// Функция для проверки победы
-bool CheckVictory(const vector<Position>& snake)
+void ClearFieldContent(std::vector<std::vector<char>>& field)
 {
-    // Максимально возможная длина змейки = площадь поля
-    int maxPossibleLength = FIELD_WIDTH * FIELD_HEIGHT;
-    return snake.size() >= maxPossibleLength;
-}
-
-// Функция для отображения Game Over внутри поля
-void ShowGameOverOnField(vector<vector<char>>& field, int snakeLength, bool victory = false)
-{
-    system("cls");
     for (int y = 1; y <= FIELD_HEIGHT; y++)
     {
         for (int x = 1; x <= FIELD_WIDTH; x++)
@@ -115,78 +146,58 @@ void ShowGameOverOnField(vector<vector<char>>& field, int snakeLength, bool vict
             field[y][x] = FILLING_FIELD;
         }
     }
-
-    string mainMsg = victory ? "VICTORY!" : "GAME OVER";
-    int msgX = (FIELD_WIDTH - mainMsg.length()) / 2 + 1;
-    int msgY = FIELD_HEIGHT / 2;
-
-    for (size_t i = 0; i < mainMsg.length(); i++)
-    {
-        if (msgX + i <= FIELD_WIDTH)
-        {
-            field[msgY][msgX + i] = mainMsg[i];
-        }
-    }
-
-    // Сообщение с длиной змейки
-    string lengthMsg = "Length: " + to_string(snakeLength);
-    int lengthX = (FIELD_WIDTH - lengthMsg.length()) / 2 + 1;
-    int lengthY = msgY + 2;
-
-    for (size_t i = 0; i < lengthMsg.length(); i++)
-    {
-        if (lengthX + i <= FIELD_WIDTH)
-        {
-            field[lengthY][lengthX + i] = lengthMsg[i];
-        }
-    }
-
-    // Дополнительное сообщение для победы
-    if (victory)
-    {
-        string perfectMsg = "PERFECT SCORE!";
-        int perfectX = (FIELD_WIDTH - perfectMsg.length()) / 2 + 1;
-        int perfectY = msgY + 1;
-
-        for (size_t i = 0; i < perfectMsg.length(); i++)
-        {
-            if (perfectX + i <= FIELD_WIDTH)
-            {
-                field[perfectY][perfectX + i] = perfectMsg[i];
-            }
-        }
-    }
 }
 
-// ФУНКЦИИ ЯБЛОКА 
+void ShowGameOverOnField(std::vector<std::vector<char>>& field, int snakeLength, bool victory = false)
+{
+    ClearConsole();
+    ClearFieldContent(field);
+
+    std::string mainMessage = victory ? VICTORY_TITLE : GAME_OVER_TITLE;
+    std::string lengthMessage = LENGTH_LABEL + std::to_string(snakeLength);
+
+    int centerRow = FIELD_HEIGHT / 2;
+
+    DrawCenteredTextOnField(field, centerRow, mainMessage);
+
+    if (victory)
+    {
+        DrawCenteredTextOnField(field, centerRow + 1, PERFECT_SCORE_STRING);
+        DrawCenteredTextOnField(field, centerRow + 3, lengthMessage);
+    }
+    else
+    {
+        DrawCenteredTextOnField(field, centerRow + 2, lengthMessage);
+    }
+}
 
 int RandomValue(int min, int max)
 {
-    static random_device rd;
-    static mt19937 gen(rd());
-    uniform_int_distribution<int> dist(min, max);
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    std::uniform_int_distribution<int> dist(min, max);
     return dist(gen);
 }
 
-Position CreateApple(const vector<Position>& snakeBody)
+Position CreateApple(const std::vector<Position>& snakeBody)
 {
     Position apple;
-    bool ValidPosition = false;
+    bool validPosition = false;
     int attempts = 0;
-    const int maxAttempts = 100;
+    const int MAX_ATTEMPTS = 100;
 
-    while (!ValidPosition && attempts < maxAttempts)
+    while (!validPosition && attempts < MAX_ATTEMPTS)
     {
         attempts++;
         apple.x = RandomValue(1, FIELD_WIDTH);
         apple.y = RandomValue(1, FIELD_HEIGHT);
 
-        ValidPosition = true;
+        validPosition = true;
         for (const auto& segment : snakeBody)
         {
             if (segment.x == apple.x && segment.y == apple.y)
             {
-                ValidPosition = false;
+                validPosition = false;
                 break;
             }
         }
@@ -195,39 +206,48 @@ Position CreateApple(const vector<Position>& snakeBody)
     return apple;
 }
 
-void PlaceApple(vector<vector<char>>& field, const Position& apple)
+void PlaceApple(std::vector<std::vector<char>>& field, const Position& apple)
 {
-    if (apple.y >= 0 && apple.y < field.size() &&
-        apple.x >= 0 && apple.x < field[apple.y].size())
+    if (apple.y >= 0 && apple.y < static_cast<int>(field.size()) &&
+        apple.x >= 0 && apple.x < static_cast<int>(field[apple.y].size()))
     {
         field[apple.y][apple.x] = APPLE_SYMBOL;
     }
 }
 
-// ФУНКЦИИ ЗМЕЙКИ 
-
-vector<Position> CreateSnake()
+bool CheckVictory(const std::vector<Position>& snake)
 {
-    vector<Position> snake;
+    int maxPossibleLength = FIELD_WIDTH * FIELD_HEIGHT;
+    return static_cast<int>(snake.size()) >= maxPossibleLength;
+}
 
-    Position head;
-    head.x = max(2, min(FIELD_WIDTH - 1, FIELD_WIDTH / 2));
-    head.y = max(2, min(FIELD_HEIGHT - 1, FIELD_HEIGHT / 2));
-    snake.push_back(head);
+std::vector<Position> CreateSnake()
+{
+    std::vector<Position> snake;
 
-    Position body;
-    body.x = head.x - 1;
-    body.y = head.y;
+    int headX = FIELD_WIDTH / 2;
+    if (headX < 2) headX = 2;
+    if (headX > FIELD_WIDTH - 1) headX = FIELD_WIDTH - 1;
 
-    if (body.x >= 1 && body.x <= FIELD_WIDTH && body.y >= 1 && body.y <= FIELD_HEIGHT)
+    int headY = FIELD_HEIGHT / 2;
+    if (headY < 2) headY = 2;
+    if (headY > FIELD_HEIGHT - 1) headY = FIELD_HEIGHT - 1;
+
+    snake.push_back({ headX, headY });  
+
+    if (headX - 1 >= 1)
     {
-        snake.push_back(body);
+        snake.push_back({ headX - 1, headY });  
+    }
+    else if (headY - 1 >= 1)
+    {
+        snake.push_back({ headX, headY - 1 });  
     }
 
     return snake;
 }
 
-void PlaceSnake(vector<vector<char>>& field, const vector<Position>& snake)
+void PlaceSnake(std::vector<std::vector<char>>& field, const std::vector<Position>& snake)
 {
     if (snake.empty()) return;
 
@@ -237,7 +257,7 @@ void PlaceSnake(vector<vector<char>>& field, const vector<Position>& snake)
         field[snake[0].y][snake[0].x] = SNAKE_HEAD_SYMBOL;
     }
 
-    for (size_t i = 1; i < snake.size(); i++)
+    for (std::size_t i = 1; i < snake.size(); i++)
     {
         if (snake[i].x >= 1 && snake[i].x <= FIELD_WIDTH &&
             snake[i].y >= 1 && snake[i].y <= FIELD_HEIGHT)
@@ -247,12 +267,11 @@ void PlaceSnake(vector<vector<char>>& field, const vector<Position>& snake)
     }
 }
 
-bool MoveSnake(vector<Position>& snake, Direction direction, Position* apple = nullptr, bool* appleEaten = nullptr)
+bool MoveSnake(std::vector<Position>& snake, Direction direction, Position* apple = nullptr, bool* appleEaten = nullptr)
 {
     if (snake.empty()) return false;
 
-    Position newHead = snake[0];
-
+    Position newHead = snake.front(); 
     switch (direction)
     {
     case Direction::UP:    newHead.y -= 1; break;
@@ -261,15 +280,13 @@ bool MoveSnake(vector<Position>& snake, Direction direction, Position* apple = n
     case Direction::RIGHT: newHead.x += 1; break;
     }
 
-    // Проверка границ
     if (newHead.x < 1 || newHead.x > FIELD_WIDTH ||
         newHead.y < 1 || newHead.y > FIELD_HEIGHT)
     {
         return false;
     }
 
-    // Проверка столкновения с собой
-    for (size_t i = 1; i < snake.size(); i++)
+    for (std::size_t i = 0; i < snake.size() - 1; i++) 
     {
         if (snake[i].x == newHead.x && snake[i].y == newHead.y)
         {
@@ -277,32 +294,26 @@ bool MoveSnake(vector<Position>& snake, Direction direction, Position* apple = n
         }
     }
 
-    // Проверка поедания яблока
     bool wasAppleEaten = false;
     if (apple != nullptr)
     {
         wasAppleEaten = (newHead.x == apple->x && newHead.y == apple->y);
-
-        if (wasAppleEaten && appleEaten != nullptr)
-        {
-            *appleEaten = true;
-            snake.push_back(snake.back());
-        }
     }
+    snake.insert(snake.begin(), newHead);
 
-    // Движение тела
-    for (int i = static_cast<int>(snake.size()) - 1; i > 0; i--)
+    if (!wasAppleEaten)
     {
-        snake[i] = snake[i - 1];
+        snake.pop_back();
+    }
+    else if (appleEaten != nullptr)
+    {
+        *appleEaten = true;
     }
 
-    snake[0] = newHead;
     return true;
 }
 
-// УПРАВЛЕНИЕ 
-
-Direction GetInput(Direction currentDirection, bool& restart, bool& exitGame)
+Direction ProcessInput(Direction currentDirection, bool& restart, bool& exitGame)
 {
     if (_kbhit())
     {
@@ -340,103 +351,131 @@ Direction GetInput(Direction currentDirection, bool& restart, bool& exitGame)
         }
     }
 
-    return currentDirection;
+    return currentDirection; 
+}
+
+void ShowStartMessage()
+{
+    std::cout << START_MESSAGE << std::endl;
+}
+
+GameData InitializeGame()
+{
+    GameData data;
+    data.field = CreateField();
+    data.snake = CreateSnake();
+    data.apple = CreateApple(data.snake);
+    data.currentDirection = Direction::RIGHT;
+    data.appleEaten = false;
+    data.state = GameState::PLAYING;
+
+    PlaceSnake(data.field, data.snake);
+    PlaceApple(data.field, data.apple);
+
+    return data;
+}
+
+void ShowGameStart(GameData& data)
+{
+    DrawField(data.field, static_cast<int>(data.snake.size()));
+    ShowStartMessage();
+    _getch();
+    ClearConsole();
+    DrawField(data.field, static_cast<int>(data.snake.size()));
+}
+
+bool HandleGameOverInput()
+{
+    if (_kbhit())
+    {
+        char key = _getch();
+        if (key == 'r' || key == 'R')
+        {
+            return true; // Рестарт
+        }
+        else if (key == 27) // ESC
+        {
+            exit(0); // Выход
+        }
+    }
+    return false;
+}
+
+bool ProcessGameOver(GameData& data)
+{
+    if (data.state == GameState::GAME_OVER || data.state == GameState::VICTORY)
+    {
+        return HandleGameOverInput();
+    }
+    return false;
+}
+
+bool ProcessGamePlaying(GameData& data)
+{
+    if (!MoveSnake(data.snake, data.currentDirection, &data.apple, &data.appleEaten))
+    {
+        data.state = GameState::GAME_OVER;
+        ShowGameOverOnField(data.field, static_cast<int>(data.snake.size()), false);
+        DrawField(data.field, static_cast<int>(data.snake.size()), data.state);
+        return true;
+    }
+
+    if (CheckVictory(data.snake))
+    {
+        data.state = GameState::VICTORY;
+        ShowGameOverOnField(data.field, static_cast<int>(data.snake.size()), true);
+        DrawField(data.field, static_cast<int>(data.snake.size()), data.state);
+        return true;
+    }
+
+    if (data.appleEaten)
+    {
+        data.apple = CreateApple(data.snake);
+        data.appleEaten = false;
+    }
+
+    data.field = CreateField();
+    PlaceSnake(data.field, data.snake);
+    PlaceApple(data.field, data.apple);
+    DrawField(data.field, static_cast<int>(data.snake.size()), data.state);
+
+    return false;
 }
 
 void GameLoop()
 {
-    vector<vector<char>> gameField = CreateField();
-    vector<Position> snake = CreateSnake();
-    Position apple = CreateApple(snake);
+    GameData gameData = InitializeGame();
+    ShowGameStart(gameData);
 
-    Direction currentDirection = Direction::RIGHT;
-    bool appleEaten = false;
-    GameState gameState = GameState::PLAYING;
+    bool restart = false;
+    bool exitGame = false;
 
-    // Начальная отрисовка
-    PlaceSnake(gameField, snake);
-    PlaceApple(gameField, apple);
-    DrawField(gameField, static_cast<int>(snake.size()));
-    cout << "Press any key to start..." << endl;
-    _getch();
-    system("cls");
-    DrawField(gameField, static_cast<int>(snake.size()));
     while (true)
     {
-        bool restart = false;
-        bool exitGame = false;
+        gameData.currentDirection = ProcessInput(gameData.currentDirection, restart, exitGame);
 
-        // Обработка ввода
-        currentDirection = GetInput(currentDirection, restart, exitGame);
-
-        if (exitGame) 
+        if (exitGame) break;
+        if (restart)
         {
-            break;
-        }
-
-        if (restart) 
-        {
-            GameLoop(); // Перезапуск игры
+            GameLoop();
             return;
         }
 
-        if (gameState == GameState::PLAYING)
+        if (gameData.state == GameState::PLAYING)
         {
-            // Движение змейки
-            if (!MoveSnake(snake, currentDirection, &apple, &appleEaten))
+            if (ProcessGamePlaying(gameData))
             {
-                gameState = GameState::GAME_OVER;
-                ShowGameOverOnField(gameField, static_cast<int>(snake.size()), false);
-                DrawField(gameField, static_cast<int>(snake.size()), gameState);
+                continue;
             }
-            else
-            {
-                // Проверка победы
-                if (CheckVictory(snake))
-                {
-                    gameState = GameState::VICTORY;
-                    ShowGameOverOnField(gameField, static_cast<int>(snake.size()), true);
-                    DrawField(gameField, static_cast<int>(snake.size()), gameState);
-                }
-                else
-                {
-                    // Обработка яблока
-                    if (appleEaten)
-                    {
-                        apple = CreateApple(snake);
-                        appleEaten = false;
-                    }
-
-                    // Обновление и отрисовка поля
-                    gameField = CreateField();
-                    PlaceSnake(gameField, snake);
-                    PlaceApple(gameField, apple);
-                    DrawField(gameField, static_cast<int>(snake.size()), gameState);
-                }
-            }
+            Sleep(300);
         }
         else
         {
-            // Если игра окончена или победа, поле больше не обновляется
-            if (_kbhit()) 
+            if (ProcessGameOver(gameData))
             {
-                char key = _getch();
-                if (key == 'r' || key == 'R') 
-                {
-                    GameLoop();
-                    return;
-                }
-                else if (key == 27)  //ESC 
-                { 
-                    break;
-                }
+                GameLoop();
+                return;
             }
-        }
-
-        
-        if (gameState == GameState::PLAYING) 
-        {
-            Sleep(300);
         }
     }
 }
